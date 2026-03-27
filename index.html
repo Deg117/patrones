@@ -412,8 +412,8 @@
       </p>
     </div>
     <div class="theory-block">
-      <h3>¿Cuándo usarlo?</h3>
-      <p>Cuando necesitas representar jerarquías parte-todo: sistemas de archivos, menús anidados, UI trees, organigramas, escenas 3D, etc.</p>
+      <h3>¿Cuando lo poedemos usar?</h3>
+      <p>Cuando necesitamos representar jerarquias parte-todo: sistemas de archivos, menús anidados, organigramas, escenas 3D, etc.</p>
     </div>
   </div>
 
@@ -446,7 +446,7 @@
         <div class="control-group">
           <h4>Seleccionado</h4>
           <div class="selected-info" id="selected-info">
-            <span style="color:var(--muted)">Ningún nodo seleccionado — haz clic en el árbol</span>
+            <span style="color:var(--muted)">Ningun nodo seleccionado — haz clic en el arbol</span>
           </div>
         </div>
 
@@ -460,7 +460,7 @@
             <button class="btn btn-file" onclick="addNode('file')">📄 Archivo</button>
           </div>
           <small style="color:var(--muted);font-size:11px">
-            Se agrega dentro de la carpeta seleccionada (o raíz si ninguna está seleccionada)
+            Se agrega dentro de la carpeta seleccionada (o raiz si ninguna está seleccionada)
           </small>
         </div>
 
@@ -472,10 +472,10 @@
         </div>
 
         <div class="stats" id="stats-box">
-          <div class="stats-title">Estadísticas del árbol</div>
+          <div class="stats-title">Estadisticas del arbol</div>
           <div class="stat-row"><span>Total carpetas</span><span class="stat-val" id="s-folders">0</span></div>
           <div class="stat-row"><span>Total archivos</span><span class="stat-val" id="s-files">0</span></div>
-          <div class="stat-row"><span>Profundidad máx.</span><span class="stat-val" id="s-depth">0</span></div>
+          <div class="stat-row"><span>Profundidad max.</span><span class="stat-val" id="s-depth">0</span></div>
           <div class="stat-row"><span>Tamaño total</span><span class="stat-val" id="s-size">0 KB</span></div>
         </div>
 
@@ -492,7 +492,7 @@
     </div>
 
     <div id="tab-js" class="code-content active"><pre>
-<span class="cmt">// ─── Componente base (interfaz común) ───────────────────────────────</span>
+<span class="cmt">// ─── Componente base (interfaz comun) ───────────────────────────────</span>
 <span class="kw">class</span> <span class="cls">FileSystemNode</span> {
   <span class="fn">constructor</span>(name) { <span class="kw">this</span>.name = name; }
   <span class="fn">getSize</span>()  { <span class="kw">throw new</span> Error(<span class="str">'abstracto'</span>); }
