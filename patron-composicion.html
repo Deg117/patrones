@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patrón Composición — Widget Interactivo</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Fraunces:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #13161b;
+    --surface2: #1a1e26;
+    --border: #2a2f3d;
+    --accent: #6ee7b7;
+    --accent2: #818cf8;
+    --accent3: #f472b6;
+    --warn: #fb923c;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --file: #93c5fd;
+    --folder: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(110,231,183,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(110,231,183,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* HEADER */
+  header {
+    margin-bottom: 48px;
+    border-left: 3px solid var(--accent);
+    padding-left: 20px;
+  }
+  .tag {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: #fff;
+  }
+  header h1 em {
+    color: var(--accent);
+    font-style: italic;
+  }
+  .subtitle {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    max-width: 560px;
+    line-height: 1.7;
+  }
+
+  /* THEORY CARD */
+  .theory {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 40px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+  }
+  .theory-block h3 {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 10px;
+  }
+  .theory-block p {
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: #a0aec0;
+  }
+  .theory-block code {
+    color: var(--accent);
+    background: rgba(110,231,183,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 720px) { .main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .panel-header {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .panel-header .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  /* TREE */
+  #tree-panel { padding: 20px; min-height: 420px; }
+  #tree-root { padding: 0; }
+
+  .node {
+    user-select: none;
+    animation: fadeIn 0.25s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:none; } }
+
+  .node-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .node-row:hover { background: rgba(255,255,255,0.04); }
+  .node-row.selected { background: rgba(110,231,183,0.08); outline: 1px solid rgba(110,231,183,0.2); }
+
+  .toggle-btn {
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  .toggle-btn.open { transform: rotate(90deg); }
+
+  .node-icon { font-size: 15px; flex-shrink: 0; }
+  .node-label {
+    font-size: 13px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .node-label.folder { color: var(--folder); }
+  .node-label.file { color: var(--file); }
+  .node-size {
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .node-children {
+    padding-left: 22px;
+    border-left: 1px dashed var(--border);
+    margin-left: 16px;
+  }
+  .node-children.hidden { display: none; }
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .empty-state .big { font-size: 32px; margin-bottom: 12px; }
+
+  /* CONTROLS */
+  .controls {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .control-group h4 {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .btn-folder {
+    background: rgba(251,191,36,0.12);
+    color: var(--folder);
+    border: 1px solid rgba(251,191,36,0.25);
+  }
+  .btn-folder:hover { background: rgba(251,191,36,0.2); }
+  .btn-file {
+    background: rgba(147,197,253,0.1);
+    color: var(--file);
+    border: 1px solid rgba(147,197,253,0.2);
+  }
+  .btn-file:hover { background: rgba(147,197,253,0.18); }
+  .btn-danger {
+    background: rgba(244,114,182,0.1);
+    color: var(--accent3);
+    border: 1px solid rgba(244,114,182,0.2);
+    width: 100%;
+  }
+  .btn-danger:hover { background: rgba(244,114,182,0.18); }
+  .btn-neutral {
+    background: rgba(129,140,248,0.1);
+    color: var(--accent2);
+    border: 1px solid rgba(129,140,248,0.2);
+    width: 100%;
+  }
+  .btn-neutral:hover { background: rgba(129,140,248,0.18); }
+
+  /* STATS */
+  .stats {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .stats-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #a0aec0;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-val { color: var(--accent); font-weight: 600; }
+
+  /* SELECTED INFO */
+  .selected-info {
+    background: rgba(110,231,183,0.05);
+    border: 1px solid rgba(110,231,183,0.15);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #a0aec0;
+    min-height: 80px;
+  }
+  .selected-info .label { color: var(--accent); font-weight: 600; }
+
+  /* CODE PANEL */
+  .code-panel {
+    margin-top: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .code-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .code-tab {
+    padding: 12px 20px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .code-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .code-content { display: none; padding: 20px; }
+  .code-content.active { display: block; }
+
+  pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.9;
+    color: #a0aec0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .kw { color: var(--accent2); }
+  .cls { color: var(--warn); }
+  .str { color: var(--accent); }
+  .cmt { color: #4a5568; font-style: italic; }
+  .fn { color: var(--accent3); }
+
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 12px;
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="tag">Patrones de Diseño · Estructural</div>
+    <h1>Patrón <em>Composición</em></h1>
+    <p class="subtitle">
+      Permite componer objetos en estructuras de árbol para representar jerarquías parte-todo.
+      Los clientes tratan objetos individuales y composiciones de manera uniforme.
+    </p>
+  </header>
+
+  <!-- THEORY -->
+  <div class="theory">
+    <div class="theory-block">
+      <h3>¿Qué es?</h3>
+      <p>El patrón define una interfaz <code>Componente</code> común para hojas (<em>Leaf</em>) y contenedores (<em>Composite</em>). Ambos responden a los mismos métodos, así el cliente no distingue entre ellos.</p>
+    </div>
+    <div class="theory-block">
+      <h3>Participantes</h3>
+      <p>
+        <code>Componente</code> — interfaz base<br>
+        <code>Hoja</code> — nodo sin hijos (archivo)<br>
+        <code>Compuesto</code> — nodo con hijos (carpeta)
+      </p>
+    </div>
+    <div class="theory-block">
+      <h3>¿Cuándo usarlo?</h3>
+      <p>Cuando necesitas representar jerarquías parte-todo: sistemas de archivos, menús anidados, UI trees, organigramas, escenas 3D, etc.</p>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TREE VIEW -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="dot" style="background:var(--folder)"></span>
+        Árbol de Archivos — Vista del Cliente
+      </div>
+      <div id="tree-panel">
+        <div id="tree-root"></div>
+        <div class="empty-state" id="empty-msg">
+          <div class="big">🌱</div>
+          Crea una carpeta raíz para comenzar
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="dot" style="background:var(--accent)"></span>
+        Controles
+      </div>
+      <div class="controls">
+
+        <div class="control-group">
+          <h4>Seleccionado</h4>
+          <div class="selected-info" id="selected-info">
+            <span style="color:var(--muted)">Ningún nodo seleccionado — haz clic en el árbol</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h4>Agregar nodo</h4>
+          <div class="input-row">
+            <input type="text" id="new-name" placeholder="nombre del nodo…" />
+          </div>
+          <div class="input-row">
+            <button class="btn btn-folder" onclick="addNode('folder')">📁 Carpeta</button>
+            <button class="btn btn-file" onclick="addNode('file')">📄 Archivo</button>
+          </div>
+          <small style="color:var(--muted);font-size:11px">
+            Se agrega dentro de la carpeta seleccionada (o raíz si ninguna está seleccionada)
+          </small>
+        </div>
+
+        <div class="control-group">
+          <div class="input-row" style="flex-direction:column;gap:8px">
+            <button class="btn btn-danger" onclick="deleteSelected()">🗑 Eliminar seleccionado</button>
+            <button class="btn btn-neutral" onclick="computeSize()">📊 Calcular tamaños</button>
+          </div>
+        </div>
+
+        <div class="stats" id="stats-box">
+          <div class="stats-title">Estadísticas del árbol</div>
+          <div class="stat-row"><span>Total carpetas</span><span class="stat-val" id="s-folders">0</span></div>
+          <div class="stat-row"><span>Total archivos</span><span class="stat-val" id="s-files">0</span></div>
+          <div class="stat-row"><span>Profundidad máx.</span><span class="stat-val" id="s-depth">0</span></div>
+          <div class="stat-row"><span>Tamaño total</span><span class="stat-val" id="s-size">0 KB</span></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- CODE PANEL -->
+  <div class="code-panel">
+    <div class="code-tabs">
+      <div class="code-tab active" onclick="showTab('js')">JavaScript</div>
+      <div class="code-tab" onclick="showTab('py')">Python</div>
+      <div class="code-tab" onclick="showTab('uml')">Diagrama UML</div>
+    </div>
+
+    <div id="tab-js" class="code-content active"><pre>
+<span class="cmt">// ─── Componente base (interfaz común) ───────────────────────────────</span>
+<span class="kw">class</span> <span class="cls">FileSystemNode</span> {
+  <span class="fn">constructor</span>(name) { <span class="kw">this</span>.name = name; }
+  <span class="fn">getSize</span>()  { <span class="kw">throw new</span> Error(<span class="str">'abstracto'</span>); }
+  <span class="fn">display</span>(indent = <span class="str">''</span>) { <span class="kw">throw new</span> Error(<span class="str">'abstracto'</span>); }
+}
+
+<span class="cmt">// ─── Hoja: no tiene hijos ────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="cls">File</span> <span class="kw">extends</span> <span class="cls">FileSystemNode</span> {
+  <span class="fn">constructor</span>(name, size) { <span class="kw">super</span>(name); <span class="kw">this</span>.size = size; }
+  <span class="fn">getSize</span>()               { <span class="kw">return this</span>.size; }
+  <span class="fn">display</span>(indent = <span class="str">''</span>)    { console.log(<span class="str">`${indent}📄 ${this.name} (${this.size}KB)`</span>); }
+}
+
+<span class="cmt">// ─── Compuesto: puede contener hojas u otros compuestos ─────────────</span>
+<span class="kw">class</span> <span class="cls">Folder</span> <span class="kw">extends</span> <span class="cls">FileSystemNode</span> {
+  <span class="fn">constructor</span>(name) { <span class="kw">super</span>(name); <span class="kw">this</span>.children = []; }
+
+  <span class="fn">add</span>(node)    { <span class="kw">this</span>.children.push(node); }
+  <span class="fn">remove</span>(node) { <span class="kw">this</span>.children = <span class="kw">this</span>.children.filter(c => c !== node); }
+
+  <span class="cmt">// getSize() delega recursivamente a sus hijos — uniforme!</span>
+  <span class="fn">getSize</span>() { <span class="kw">return this</span>.children.reduce((s, c) => s + c.<span class="fn">getSize</span>(), <span class="str">0</span>); }
+
+  <span class="fn">display</span>(indent = <span class="str">''</span>) {
+    console.log(<span class="str">`${indent}📁 ${this.name}/`</span>);
+    <span class="kw">this</span>.children.<span class="fn">forEach</span>(c => c.<span class="fn">display</span>(indent + <span class="str">'  '</span>));
+  }
+}
+
+<span class="cmt">// ─── El cliente usa la MISMA interfaz para ambos ─────────────────────</span>
+<span class="kw">const</span> root = <span class="kw">new</span> <span class="cls">Folder</span>(<span class="str">'proyecto'</span>);
+<span class="kw">const</span> src  = <span class="kw">new</span> <span class="cls">Folder</span>(<span class="str">'src'</span>);
+src.<span class="fn">add</span>(<span class="kw">new</span> <span class="cls">File</span>(<span class="str">'index.js'</span>,  <span class="str">12</span>));
+src.<span class="fn">add</span>(<span class="kw">new</span> <span class="cls">File</span>(<span class="str">'app.js'</span>,    <span class="str">34</span>));
+root.<span class="fn">add</span>(src);
+root.<span class="fn">add</span>(<span class="kw">new</span> <span class="cls">File</span>(<span class="str">'README.md'</span>, <span class="str">2</span>));
+
+root.<span class="fn">display</span>();
+console.log(<span class="str">'Tamaño total:'</span>, root.<span class="fn">getSize</span>(), <span class="str">'KB'</span>); <span class="cmt">// → 48 KB</span>
+</pre></div>
+
+    <div id="tab-py" class="code-content"><pre>
+<span class="kw">from</span> abc <span class="kw">import</span> ABC, abstractmethod
+
+<span class="cmt"># ─── Componente base ─────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="cls">FileSystemNode</span>(ABC):
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name: str):
+        <span class="kw">self</span>.name = name
+
+    <span class="kw">@abstractmethod</span>
+    <span class="kw">def</span> <span class="fn">get_size</span>(<span class="kw">self</span>) -> int: ...
+
+    <span class="kw">@abstractmethod</span>
+    <span class="kw">def</span> <span class="fn">display</span>(<span class="kw">self</span>, indent: str = <span class="str">""</span>): ...
+
+<span class="cmt"># ─── Hoja ────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="cls">File</span>(<span class="cls">FileSystemNode</span>):
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name: str, size: int):
+        <span class="kw">super</span>().<span class="fn">__init__</span>(name)
+        <span class="kw">self</span>.size = size
+
+    <span class="kw">def</span> <span class="fn">get_size</span>(<span class="kw">self</span>): <span class="kw">return self</span>.size
+    <span class="kw">def</span> <span class="fn">display</span>(<span class="kw">self</span>, indent=<span class="str">""</span>):
+        print(<span class="str">f"{indent}📄 {self.name} ({self.size}KB)"</span>)
+
+<span class="cmt"># ─── Compuesto ───────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="cls">Folder</span>(<span class="cls">FileSystemNode</span>):
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name: str):
+        <span class="kw">super</span>().<span class="fn">__init__</span>(name)
+        <span class="kw">self</span>._children: list[<span class="cls">FileSystemNode</span>] = []
+
+    <span class="kw">def</span> <span class="fn">add</span>(<span class="kw">self</span>, node): <span class="kw">self</span>._children.append(node)
+    <span class="kw">def</span> <span class="fn">remove</span>(<span class="kw">self</span>, node): <span class="kw">self</span>._children.remove(node)
+
+    <span class="kw">def</span> <span class="fn">get_size</span>(<span class="kw">self</span>):
+        <span class="kw">return sum</span>(c.<span class="fn">get_size</span>() <span class="kw">for</span> c <span class="kw">in self</span>._children)
+
+    <span class="kw">def</span> <span class="fn">display</span>(<span class="kw">self</span>, indent=<span class="str">""</span>):
+        print(<span class="str">f"{indent}📁 {self.name}/"</span>)
+        <span class="kw">for</span> child <span class="kw">in self</span>._children:
+            child.<span class="fn">display</span>(indent + <span class="str">"  "</span>)
+</pre></div>
+
+    <div id="tab-uml" class="code-content"><pre style="text-align:center;color:var(--muted)">
+         <span class="cls">«interface»</span>
+      <span class="cls">FileSystemNode</span>
+     ┌────────────────────┐
+     │  + name: string    │
+     │  + getSize(): int  │
+     │  + display(): void │
+     └─────────┬──────────┘
+               │
+       ┌───────┴────────┐
+       │                │
+  <span class="fn">«Hoja»</span>          <span class="warn">«Compuesto»</span>
+  <span class="fn">File</span>            <span class="warn">Folder</span>
+ ┌──────────┐   ┌──────────────────┐
+ │+ size    │   │+ children: [ ]   │
+ │          │   │+ add(node)       │
+ │getSize() │   │+ remove(node)    │
+ │display() │   │  getSize() ──────┼──► delega a hijos
+ └──────────┘   │  display()       │
+                └────────┬─────────┘
+                         │ contiene *
+                    <span class="cls">FileSystemNode</span>
+                  (hojas u otros Folder)
+
+
+  <span class="cmt">Clave del patrón: el cliente solo conoce FileSystemNode,</span>
+  <span class="cmt">no necesita saber si es Hoja o Compuesto.</span>
+</pre></div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  MODELO — implementación real del patrón Composición
+// ═══════════════════════════════════════════════════════════
+
+let nodeIdCounter = 0;
+
+class FileSystemNode {
+  constructor(name) {
+    this.id   = ++nodeIdCounter;
+    this.name = name;
+  }
+  getSize()  { throw new Error('abstract'); }
+  getCount() { throw new Error('abstract'); }
+  depth()    { throw new Error('abstract'); }
+}
+
+class FileLeaf extends FileSystemNode {
+  constructor(name) {
+    super(name);
+    this.size = Math.floor(Math.random() * 200) + 1; // KB aleatorio
+    this.type = 'file';
+  }
+  getSize()  { return this.size; }
+  getCount() { return { files: 1, folders: 0 }; }
+  depth()    { return 0; }
+}
+
+class FolderComposite extends FileSystemNode {
+  constructor(name) {
+    super(name);
+    this.children = [];
+    this.type = 'folder';
+    this.open = true;
+  }
+  add(node)    { this.children.push(node); }
+  remove(node) { this.children = this.children.filter(c => c !== node); }
+
+  getSize() {
+    return this.children.reduce((s, c) => s + c.getSize(), 0);
+  }
+  getCount() {
+    return this.children.reduce(
+      (acc, c) => {
+        const sub = c.getCount();
+        return { files: acc.files + sub.files, folders: acc.folders + sub.folders };
+      },
+      { files: 0, folders: 1 }
+    );
+  }
+  depth() {
+    if (!this.children.length) return 0;
+    return 1 + Math.max(...this.children.map(c => c.depth()));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ESTADO DE LA APP
+// ═══════════════════════════════════════════════════════════
+
+let root       = null;
+let selected   = null; // nodo actualmente seleccionado
+let showSizes  = false;
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════
+
+function renderTree() {
+  const container = document.getElementById('tree-root');
+  const emptyMsg  = document.getElementById('empty-msg');
+
+  if (!root) {
+    container.innerHTML = '';
+    emptyMsg.style.display = 'block';
+    updateStats(null);
+    return;
+  }
+  emptyMsg.style.display = 'none';
+  container.innerHTML = '';
+  container.appendChild(buildNodeEl(root, null));
+  updateStats(root);
+  updateSelectedInfo();
+}
+
+function buildNodeEl(node, parent) {
+  const wrap = document.createElement('div');
+  wrap.className = 'node';
+  wrap.dataset.id = node.id;
+
+  const row = document.createElement('div');
+  row.className = 'node-row' + (selected && selected.id === node.id ? ' selected' : '');
+  row.onclick = (e) => { e.stopPropagation(); selectNode(node); };
+
+  if (node.type === 'folder') {
+    const toggle = document.createElement('span');
+    toggle.className = 'toggle-btn' + (node.open ? ' open' : '');
+    toggle.textContent = '▶';
+    toggle.onclick = (e) => { e.stopPropagation(); node.open = !node.open; renderTree(); };
+    row.appendChild(toggle);
+
+    row.appendChild(icon('📁'));
+    row.appendChild(label(node.name, 'folder'));
+  } else {
+    const sp = document.createElement('span');
+    sp.style.width = '16px';
+    row.appendChild(sp);
+    row.appendChild(icon(fileIcon(node.name)));
+    row.appendChild(label(node.name, 'file'));
+  }
+
+  if (showSizes) {
+    const sz = document.createElement('span');
+    sz.className = 'node-size';
+    sz.textContent = node.getSize() + ' KB';
+    row.appendChild(sz);
+  }
+
+  wrap.appendChild(row);
+
+  if (node.type === 'folder') {
+    const childWrap = document.createElement('div');
+    childWrap.className = 'node-children' + (node.open ? '' : ' hidden');
+    node.children.forEach(child => childWrap.appendChild(buildNodeEl(child, node)));
+    wrap.appendChild(childWrap);
+  }
+
+  return wrap;
+}
+
+function icon(emoji) {
+  const s = document.createElement('span');
+  s.className = 'node-icon';
+  s.textContent = emoji;
+  return s;
+}
+function label(text, cls) {
+  const s = document.createElement('span');
+  s.className = 'node-label ' + cls;
+  s.textContent = text;
+  return s;
+}
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const map = { js:'🟨', ts:'🔷', py:'🐍', html:'🌐', css:'🎨', md:'📝', json:'📋',
+                png:'🖼', jpg:'🖼', gif:'🖼', svg:'🎭', mp4:'🎬', mp3:'🎵', pdf:'📕',
+                zip:'📦', txt:'📃' };
+  return map[ext] || '📄';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SELECCIÓN
+// ═══════════════════════════════════════════════════════════
+
+function selectNode(node) {
+  selected = node;
+  renderTree();
+}
+
+function updateSelectedInfo() {
+  const box = document.getElementById('selected-info');
+  if (!selected) {
+    box.innerHTML = '<span style="color:var(--muted)">Ningún nodo seleccionado — haz clic en el árbol</span>';
+    return;
+  }
+  const isFolder = selected.type === 'folder';
+  let html = `<span class="label">Nombre:</span> ${selected.name}<br>`;
+  html += `<span class="label">Tipo:</span> ${isFolder ? 'Compuesto (Folder)' : 'Hoja (File)'}<br>`;
+  html += `<span class="label">Tamaño:</span> ${selected.getSize()} KB<br>`;
+  if (isFolder) {
+    const cnt = selected.getCount();
+    html += `<span class="label">Hijos directos:</span> ${selected.children.length}<br>`;
+    html += `<span class="label">Archivos totales:</span> ${cnt.files}<br>`;
+    html += `<span class="label">Profundidad:</span> ${selected.depth()}`;
+  }
+  box.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ACCIONES
+// ═══════════════════════════════════════════════════════════
+
+function addNode(type) {
+  const nameInput = document.getElementById('new-name');
+  const name = nameInput.value.trim() || (type === 'folder' ? 'Nueva Carpeta' : 'nuevo_archivo.txt');
+
+  // si no hay raíz, crear raíz carpeta
+  if (!root) {
+    if (type === 'file') { toast('Crea primero una carpeta raíz'); return; }
+    root = new FolderComposite(name);
+    selected = root;
+    nameInput.value = '';
+    renderTree();
+    toast('Raíz creada: ' + name);
+    return;
+  }
+
+  // encontrar destino
+  let target = null;
+  if (selected && selected.type === 'folder') {
+    target = selected;
+  } else if (selected && selected.type === 'file') {
+    target = findParent(root, selected);
+  } else {
+    target = root;
+  }
+
+  const node = type === 'folder' ? new FolderComposite(name) : new FileLeaf(name);
+  target.add(node);
+  target.open = true;
+  selected = node;
+  nameInput.value = '';
+  renderTree();
+  toast((type === 'folder' ? '📁' : '📄') + ' Agregado: ' + name);
+}
+
+function deleteSelected() {
+  if (!selected) { toast('Selecciona un nodo primero'); return; }
+  if (selected === root) { root = null; selected = null; renderTree(); toast('Árbol eliminado'); return; }
+  const parent = findParent(root, selected);
+  if (parent) {
+    parent.remove(selected);
+    selected = parent;
+    renderTree();
+    toast('🗑 Eliminado correctamente');
+  }
+}
+
+function computeSize() {
+  showSizes = !showSizes;
+  renderTree();
+  toast(showSizes ? '📊 Mostrando tamaños recursivos' : 'Tamaños ocultos');
+}
+
+function findParent(node, target) {
+  if (node.type !== 'folder') return null;
+  for (const child of node.children) {
+    if (child === target) return node;
+    const found = findParent(child, target);
+    if (found) return found;
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════════════════════════
+
+function updateStats(node) {
+  if (!node) {
+    document.getElementById('s-folders').textContent = '0';
+    document.getElementById('s-files').textContent   = '0';
+    document.getElementById('s-depth').textContent   = '0';
+    document.getElementById('s-size').textContent    = '0 KB';
+    return;
+  }
+  const cnt = node.getCount();
+  document.getElementById('s-folders').textContent = cnt.folders;
+  document.getElementById('s-files').textContent   = cnt.files;
+  document.getElementById('s-depth').textContent   = node.depth();
+  document.getElementById('s-size').textContent    = node.getSize() + ' KB';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TABS & TOAST
+// ═══════════════════════════════════════════════════════════
+
+function showTab(id) {
+  document.querySelectorAll('.code-tab').forEach((t,i) => {
+    const ids = ['js','py','uml'];
+    t.classList.toggle('active', ids[i] === id);
+  });
+  document.querySelectorAll('.code-content').forEach(c => {
+    c.classList.toggle('active', c.id === 'tab-' + id);
+  });
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── Árbol de demostración inicial ─────────────────────────
+(function initDemo() {
+  const proyecto = new FolderComposite('mi-proyecto');
+  const src = new FolderComposite('src');
+  const components = new FolderComposite('components');
+  components.add(new FileLeaf('Button.js'));
+  components.add(new FileLeaf('Modal.js'));
+  src.add(new FileLeaf('index.js'));
+  src.add(components);
+  src.add(new FileLeaf('styles.css'));
+  const assets = new FolderComposite('assets');
+  assets.add(new FileLeaf('logo.svg'));
+  assets.add(new FileLeaf('banner.png'));
+  proyecto.add(src);
+  proyecto.add(assets);
+  proyecto.add(new FileLeaf('README.md'));
+  proyecto.add(new FileLeaf('package.json'));
+  root = proyecto;
+  selected = proyecto;
+  renderTree();
+})();
+</script>
+</body>
+</html>
